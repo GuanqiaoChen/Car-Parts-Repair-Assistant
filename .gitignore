@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# Secrets
+.env
+backend/.env
+frontend/.env
+
+# Data 
+data/
+backend/data/
+*.csv
