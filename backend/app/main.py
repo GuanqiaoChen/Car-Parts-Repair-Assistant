@@ -1,56 +1,79 @@
+from __future__ import annotations
+
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from pydantic import BaseModel
-import pandas as pd
+from fastapi.middleware.cors import CORSMiddleware
+
+from .schema import QueryRequest, QueryResponse
+from .data import load_dataset
+from .llm import LLMPlanner
+from .execute import run_plan
+from .viz import make_chart
 
 load_dotenv()
 
-HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", "8000"))
-DATA_PATH = os.getenv("DATA_PATH", "/data/repair_history.csv")
+app = FastAPI(title="Car Repair LLM Data Analyst Agent", version="1.0.0")
 
-app = FastAPI(title="Car Assistant Backend", version="0.1.0")
+# For local dev + Streamlit
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-_df = None
+DATA_PATH = os.getenv("DATA_PATH", "/data/encoded_parts_history.csv")
+MAX_ROWS_RETURNED = int(os.getenv("MAX_ROWS_RETURNED", "200"))
 
-class QueryRequest(BaseModel):
-    question: str
+df = None
+planner = LLMPlanner()
 
 @app.on_event("startup")
-def startup():
-    global _df
-    _df = pd.read_csv(DATA_PATH)
+def _startup():
+    global df
+    df = load_dataset(DATA_PATH)
 
 @app.get("/health")
 def health():
-    return {"ok": True, "data_loaded": _df is not None, "hot": True}
+    return {"ok": True, "data_loaded": df is not None, "rows": (len(df) if df is not None else 0)}
 
-@app.post("/query")
+@app.post("/query", response_model=QueryResponse)
 def query(req: QueryRequest):
-    """
-    Minimal stub endpoint:
-    - echoes the question
-    - returns a tiny demo table
-    Replace this later with: LLM->plan->execute->table/chart.
-    """
-    demo_table = {
-        "columns": ["field", "value"],
-        "rows": [
-            ["question", req.question],
-            ["data_loaded", str(_df is not None)],
-            ["num_rows", str(len(_df)) if _df is not None else "0"],
-        ],
+    global df
+    plan = planner.plan(req.question)
+
+    result_df, error_text = run_plan(df, plan, max_rows_returned=MAX_ROWS_RETURNED)
+
+    if error_text:
+        return QueryResponse(
+            answer_format="text",
+            narrative=plan.narrative or "Unable to run the requested analysis.",
+            text=error_text,
+            table=None,
+            chart=None,
+            plan=plan.model_dump(),
+        )
+
+    table_json = {
+        "columns": [str(c) for c in result_df.columns],
+        "rows": result_df.astype(object).where(result_df.notna(), None).values.tolist(),
     }
 
-    return {
-        "answer_format": "table",
-        "narrative": "Stub response (plumbing check).",
-        "text": None,
-        "table": demo_table,
-        "chart": None,
-        "plan": {
-            "kind": "stub",
-            "note": "Replace with LLM plan + Pandas execution",
-        },
-    }
+    chart_json = None
+    if plan.answer_format == "chart":
+        chart_json = make_chart(result_df, plan.chart)
+
+    # If chart requested but we failed to form one, still return table
+    answer_format = plan.answer_format
+    if answer_format == "chart" and chart_json is None:
+        answer_format = "table"
+
+    return QueryResponse(
+        answer_format=answer_format,
+        narrative=plan.narrative or "",
+        text=None,
+        table=table_json if answer_format in ["table", "chart"] else None,
+        chart=chart_json if answer_format == "chart" else None,
+        plan=plan.model_dump(),
+    )
