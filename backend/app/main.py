@@ -24,7 +24,7 @@ def startup():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "data_loaded": _df is not None}
+    return {"ok": True, "data_loaded": _df is not None, "hot": True}
 
 @app.post("/query")
 def query(req: QueryRequest):

@@ -6,7 +6,7 @@ import pandas as pd
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="Car Assistant", layout="wide")
-st.title("Car Repair Data Assistant (Minimal)")
+st.title("Car Repair Data Assistant (Hot Reload)")
 st.caption("This is a plumbing check: Streamlit -> FastAPI -> response.")
 
 with st.sidebar:
