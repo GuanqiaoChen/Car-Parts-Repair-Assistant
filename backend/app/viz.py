@@ -23,10 +23,10 @@ def choose_default_chart(df: pd.DataFrame) -> ChartSpec:
 
 def make_chart(df: pd.DataFrame, chart: ChartSpec, meta: Optional[dict] = None) -> Optional[Dict[str, Any]]:
     """
-    Render a Plotly chart for the given `ChartSpec`, returning a JSON payload
-    that the frontend can feed directly into `st.plotly_chart`.
+    Render a Plotly chart for the given 'ChartSpec', returning a JSON payload
+    that the frontend can feed directly into 'st.plotly_chart'.
 
-    Where possible, we reuse extra context from `meta` (for example sampled
+    Where possible, we reuse extra context from 'meta' (for example sampled
     scatter points for correlations) so the visual matches the numeric output.
     """
     if df is None or df.empty:

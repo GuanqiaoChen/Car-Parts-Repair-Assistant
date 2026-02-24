@@ -30,8 +30,8 @@ EXAMPLES = [
     "How does the average time between a vehicle's build date and its first repair demand vary by vehicle model?",
     "Show the monthly trend of total Quantity requested.",
     "Make a heatmap of DemandType by VehicleModel using row counts.",
-    "Is vehicle age correlated with Quantity?",
-    "Top 10 parts by Quantity and their share of total."
+    "Heatmap of VIN by SSPart using row counts.",
+    "Show distribution by DealerName."
 ]
 
 if "q" not in st.session_state:
@@ -69,7 +69,7 @@ for j in range(3):
 
 if st.button("Ask"):
     # The Streamlit layer is intentionally thin: it serialises the question into
-    # the `QueryRequest` contract and lets the backend decide how to answer it.
+    # the 'QueryRequest' contract and lets the backend decide how to answer it.
     with st.spinner("Planning and executing..."):
         resp = requests.post(f"{API_BASE}/query", json={"question": q}, timeout=180)
         resp.raise_for_status()
@@ -88,7 +88,7 @@ if st.button("Ask"):
     for idx, item in enumerate(items, start=1):
         st.markdown(f"## Step {idx}")
 
-        # The backend provides a structured `status` field so the UI can render
+        # The backend provides a structured 'status' field so the UI can render
         # preview/error states without relying on special symbols in strings.
         status = item.get("status", "ok")
         notices = item.get("notices", []) or []

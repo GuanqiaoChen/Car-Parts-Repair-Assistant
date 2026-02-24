@@ -22,7 +22,7 @@ def system_prompt() -> str:
 
     The prompt carefully describes:
     - which columns exist and how they can be referenced,
-    - how to decompose a free-form question into a `MultiAssistantPlan`, and
+    - how to decompose a free-form question into a 'MultiAssistantPlan', and
     - which analysis types and output formats are preferred.
     """
     synonyms = _load_synonyms()
@@ -42,7 +42,7 @@ Core principles
 - The user may ask multiple sub-questions. You must (1) decompose the request into sub-questions and (2) detect dependencies between them.
 - IMPORTANT: MultiAssistantPlan.plans are executed independently (no variable passing). Therefore:
   - If a sub-question depends on the result of another sub-question, DO NOT split them into separate independent plans.
-  - Instead, use a single plan type that captures the dependency (prefer `drilldown`), or combine into one executable plan.
+  - Instead, use a single plan type that captures the dependency (prefer 'drilldown'), or combine into one executable plan.
 
 Rules (safety and correctness)
 - Never invent columns outside the schema.
@@ -58,8 +58,8 @@ Decomposition + dependency rules
    - B also depends on A if B requires the identity of a top group/value computed in A.
 3) Planning strategy:
    - If there are dependency edges, try to collapse each dependent chain into ONE plan:
-     - Use `drilldown` for patterns like: "find top X, then breakdown Y within that top X".
-     - Use `first_repair_delay` for "build date to first repair" requests (not as 2 steps).
+     - Use 'drilldown' for patterns like: "find top X, then breakdown Y within that top X".
+     - Use 'first_repair_delay' for "build date to first repair" requests (not as 2 steps).
    - Only split into multiple plans when the sub-questions are independent (no dependency edges).
 
 Preferred analysis kinds
@@ -100,9 +100,9 @@ class LLMPlanner:
 
     This class is intentionally small: it knows how to:
     - feed the system prompt and raw question into the model, and
-    - ask the SDK to parse the response directly into a `MultiAssistantPlan`.
+    - ask the SDK to parse the response directly into a 'MultiAssistantPlan'.
 
-    All policy and safety constraints live in `system_prompt` and in downstream
+    All policy and safety constraints live in 'system_prompt' and in downstream
     validators so that changing models does not require touching call sites.
     """
 

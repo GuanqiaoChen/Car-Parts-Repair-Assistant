@@ -203,7 +203,7 @@ def run_single_plan(
 
         res = res.sort_values("_bucket")
 
-        # `limit_points` is a plan-level limit and should be treated as normal output.
+        # 'limit_points' is a plan-level limit and should be treated as normal output.
         orig_len = len(res)
         res2 = res.head(int(a.limit_points))
         if len(res2) != orig_len:

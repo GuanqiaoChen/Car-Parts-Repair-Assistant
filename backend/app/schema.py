@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal, Optional, List, Union
 from pydantic import BaseModel, Field, ConfigDict
 
-# Columns exposed to the planning layer; these mirror what `data.load_dataset`
+# Columns exposed to the planning layer; these mirror what 'data.load_dataset'
 # guarantees after preprocessing. Keeping them in one place makes it easier to
 # reason about what the LLM is allowed to reference.
 DATA_COLUMNS = [
@@ -48,8 +48,8 @@ class FilterSpec(BaseModel):
 
 class MetricSpec(BaseModel):
     """
-    Describes a single aggregation to compute, such as `sum(Quantity)` or a
-    synthetic `row_count`. The alias is what eventually surfaces in tables.
+    Describes a single aggregation to compute, such as 'sum(Quantity)' or a
+    synthetic 'row_count'. The alias is what eventually surfaces in tables.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -111,8 +111,8 @@ class PivotPlan(BaseModel):
 
 class TrendPlan(BaseModel):
     """
-    Time-bucketed series over `DemandDate` or `BuildDate`, optionally split
-    into multiple series by a dimension such as `VehicleModel`.
+    Time-bucketed series over 'DemandDate' or 'BuildDate', optionally split
+    into multiple series by a dimension such as 'VehicleModel'.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -160,8 +160,8 @@ class TopNSharePlan(BaseModel):
 
 class DrilldownPlan(BaseModel):
     """
-    Two-stage plan: first identify the top group by `top_dim`, then compute a
-    breakdown within that winning group along `breakdown_dim`.
+    Two-stage plan: first identify the top group by 'top_dim', then compute a
+    breakdown within that winning group along 'breakdown_dim'.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -247,10 +247,10 @@ class ResultItem(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # `ok`      : the step executed normally.
-    # `preview` : the backend applied a system-level truncation and is returning
+    # 'ok'      : the step executed normally.
+    # 'preview' : the backend applied a system-level truncation and is returning
     #             a limited preview instead of the full output.
-    # `error`   : the step could not be executed as requested.
+    # 'error'   : the step could not be executed as requested.
     status: Literal["ok", "preview", "error"] = "ok"
     notices: List[str] = Field(default_factory=list)
 

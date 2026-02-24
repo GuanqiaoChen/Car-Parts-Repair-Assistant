@@ -7,7 +7,7 @@ from .schema import AnswerFormat
 def df_to_table(df: pd.DataFrame) -> dict:
     """
     Convert an analysis DataFrame into the lightweight table structure the
-    frontend understands (`columns` + `rows`, with NaNs normalised to None).
+    frontend understands ('columns' + 'rows', with NaNs normalised to None).
     """
     return {
         "columns": [str(c) for c in df.columns],
