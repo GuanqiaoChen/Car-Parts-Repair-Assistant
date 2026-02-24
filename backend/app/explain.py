@@ -26,7 +26,7 @@ def explain_plan(plan: AssistantPlan) -> str:
     if isinstance(a, DrilldownPlan):
         return f"Found top {a.top_n} {a.top_dim} by {a.top_agg}({a.top_metric}), then within the top value computed {a.breakdown_agg}({a.breakdown_metric}) by {a.breakdown_dim}."
     if isinstance(a, CorrelationPlan):
-        return f"Computed {a.method} correlation between {a.x} and {a.y} on a sampled subset (n≤{a.sample})."
-    # Fallback for forwards‑compatibility: if we add a new analysis kind and
+        return f"Computed {a.method} correlation between {a.x} and {a.y} on a sampled subset (n<={a.sample})."
+    # Fallback for forwards-compatibility: if we add a new analysis kind and
     # forget to update this helper, the UI still shows a sane description.
     return "Executed the planned analysis."

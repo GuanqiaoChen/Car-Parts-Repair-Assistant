@@ -64,9 +64,7 @@ def run_single_plan(
     a = plan.analysis
     meta: Dict[str, Any] = {}
 
-    # ---------------------------
     # SimpleGroupbyPlan
-    # ---------------------------
     if isinstance(a, SimpleGroupbyPlan):
         dff = _apply_filters(df, a.filters)
 
@@ -124,9 +122,7 @@ def run_single_plan(
         res2 = _cap_df_system(res2, max_rows_returned, meta, "Result too large to return safely")
         return res2, None, meta
 
-    # ---------------------------
     # PivotPlan (SYSTEM truncation by design)
-    # ---------------------------
     if isinstance(a, PivotPlan):
         dff = _apply_filters(df, a.filters).copy()
 
@@ -155,16 +151,14 @@ def run_single_plan(
             meta["truncated"] = True
             meta["truncate_note"] = (
                 meta.get("truncate_note")
-                or f"Full pivot is too large; limited to top {a.limit_rows} rows 脳 {a.limit_cols} cols for readability."
+                or f"Full pivot is too large; limited to top {a.limit_rows} rows x {a.limit_cols} cols for readability."
             )
 
         piv_reset = piv2.reset_index()
         piv_reset = _cap_df_system(piv_reset, max_rows_returned, meta, "Pivot result too large to return safely")
         return piv_reset, None, meta
 
-    # ---------------------------
     # TrendPlan
-    # ---------------------------
     if isinstance(a, TrendPlan):
         dff = _apply_filters(df, a.filters).copy()
 
@@ -220,9 +214,7 @@ def run_single_plan(
         res2 = _cap_df_system(res2, max_rows_returned, meta, "Trend result too large to return safely")
         return res2, None, meta
 
-    # ---------------------------
     # FirstRepairDelayPlan
-    # ---------------------------
     if isinstance(a, FirstRepairDelayPlan):
         dff = _apply_filters(df, a.filters).dropna(subset=["VIN", "DemandDate", "BuildDate"]).copy()
         if dff.empty:
@@ -262,9 +254,7 @@ def run_single_plan(
         res2 = _cap_df_system(res2, max_rows_returned, meta, "Delay result too large to return safely")
         return res2, None, meta
 
-    # ---------------------------
-    # TopNSharePlan (Top N is normal user intent)
-    # ---------------------------
+    # TopNSharePlan 
     if isinstance(a, TopNSharePlan):
         dff = _apply_filters(df, a.filters).copy()
         if a.metric == "row_count":
@@ -295,9 +285,7 @@ def run_single_plan(
         top = _cap_df_system(top, max_rows_returned, meta, "TopN+share result too large to return safely")
         return top, None, meta
 
-    # ---------------------------
-    # DrilldownPlan (top_n / breakdown_limit are normal)
-    # ---------------------------
+    # DrilldownPlan 
     if isinstance(a, DrilldownPlan):
         dff = _apply_filters(df, a.filters).copy()
 
@@ -351,9 +339,7 @@ def run_single_plan(
         br2 = _cap_df_system(br2, max_rows_returned, meta, "Drilldown result too large to return safely")
         return br2, None, meta
 
-    # ---------------------------
     # CorrelationPlan (sampling is SYSTEM truncation)
-    # ---------------------------
     if isinstance(a, CorrelationPlan):
         dff = _apply_filters(df, a.filters).copy()
 

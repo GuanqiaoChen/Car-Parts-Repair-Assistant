@@ -34,7 +34,7 @@ def load_dataset(path: str) -> pd.DataFrame:
     df["BuildDate"] = pd.to_datetime(df["BuildDate"], errors="coerce")
 
     # Feature engineering: vehicle age at demand time (days).
-    # This is computed once at load time to keep query‑time plans cheap.
+    # This is computed once at load time to keep query-time plans cheap.
     df["VehicleAgeDays"] = (df["DemandDate"] - df["BuildDate"]).dt.days
 
     # Basic missing handling: we keep rows and let downstream filters/

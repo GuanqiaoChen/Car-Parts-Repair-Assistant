@@ -6,10 +6,10 @@ import pandas as pd
 # Base URL for the FastAPI backend that owns planning and execution.
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
-# Basic page chrome that advertises the NL → LLM → Pandas → UI pipeline.
+# Basic page chrome that advertises the NL -> LLM -> Pandas -> UI pipeline.
 st.set_page_config(page_title="Data Analyst Agent", layout="wide")
 st.title("Data Analyst Agent")
-st.caption("LLM multi-step planning → safe execution → text/tables/charts output")
+st.caption("LLM multi-step planning -> safe execution -> text/tables/charts output")
 
 with st.sidebar:
     st.subheader("Backend")
@@ -37,7 +37,7 @@ EXAMPLES = [
 if "q" not in st.session_state:
     st.session_state["q"] = EXAMPLES[0]
 
-# This is the only place where a free‑form natural language query is collected;
+# This is the only place where a free-form natural language query is collected;
 # everything downstream treats it as data and sends it to the backend as JSON.
 q = st.text_area("Ask a question", key="q", height=90)
 
@@ -87,10 +87,25 @@ if st.button("Ask"):
     items = data.get("items", [])
     for idx, item in enumerate(items, start=1):
         st.markdown(f"## Step {idx}")
+
+        # The backend provides a structured `status` field so the UI can render
+        # preview/error states without relying on special symbols in strings.
+        status = item.get("status", "ok")
+        notices = item.get("notices", []) or []
+
+        if status == "error":
+            # Errors are shown prominently; the narrative still provides context.
+            if notices:
+                st.error("\n".join(notices))
+        elif status == "preview":
+            # Preview indicates the backend applied system-level truncation.
+            if notices:
+                st.warning("\n".join(notices))
+
         st.write(item.get("narrative", ""))
         st.caption(item.get("explanation", ""))
 
-        # The output type is chosen server‑side; the frontend simply inspects
+        # The output type is chosen server-side; the frontend simply inspects
         # which fields are present and renders them in a natural order.
         if item.get("text"):
             st.write(item["text"])

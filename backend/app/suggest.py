@@ -14,7 +14,7 @@ def build_suggestions(
     meta: Dict[str, Any],
 ) -> List[str]:
     """
-    Dynamic suggestions. No fixed templates; suggestions are derived from runtime context.
+    Dynamic suggestions. Suggestions are derived from runtime context.
     """
     s: List[str] = []
     kind = (plan_dump.get("analysis") or {}).get("kind")
@@ -29,7 +29,7 @@ def build_suggestions(
 
         elif "missing column" in e:
             s.append("Use only dataset columns; try grouping by Province, VehicleModel, DemandType, PayType, or CountryCode.")
-            s.append("If you meant a different concept, rephrase using one of the existing columns (e.g., 'state' 鈫?Province).")
+            s.append("If you meant a different concept, rephrase using one of the existing columns (e.g., 'state' -> Province).")
 
         elif "not enough" in e and "correlation" in e:
             s.append("Try removing strict filters to increase sample size, or correlate Quantity with VehicleAgeDays without additional filters.")

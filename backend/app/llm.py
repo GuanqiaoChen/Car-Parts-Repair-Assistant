@@ -9,7 +9,7 @@ from .schema import MultiAssistantPlan, DATA_COLUMNS
 
 def _load_synonyms() -> dict:
     """
-    Load the hand‑curated mapping between user‑facing phrases and strict
+    Load the hand-curated mapping between user-facing phrases and strict
     dataset column names. This is the main bridge between natural language
     questions and the schema the executor is allowed to touch.
     """
@@ -22,7 +22,7 @@ def system_prompt() -> str:
 
     The prompt carefully describes:
     - which columns exist and how they can be referenced,
-    - how to decompose a free‑form question into a `MultiAssistantPlan`, and
+    - how to decompose a free-form question into a `MultiAssistantPlan`, and
     - which analysis types and output formats are preferred.
     """
     synonyms = _load_synonyms()
@@ -32,7 +32,7 @@ def system_prompt() -> str:
 You will receive a natural-language question about a CSV dataset with these columns:
 {cols}
 
-Synonyms mapping (user terms → column):
+Synonyms mapping (user terms -> column):
 {json.dumps(synonyms, ensure_ascii=False)}
 
 Your task: produce a valid JSON object matching the MultiAssistantPlan schema.
@@ -112,7 +112,7 @@ class LLMPlanner:
 
     def plan_multi(self, question: str) -> MultiAssistantPlan:
         """
-        Turn a single natural‑language question into one or more structured
+        Turn a single natural-language question into one or more structured
         analysis plans that the executor can run without further LLM calls.
         """
         resp = self.client.responses.parse(

@@ -81,7 +81,7 @@ class ChartSpec(BaseModel):
 class SimpleGroupbyPlan(BaseModel):
     """
     Generic "group by dimensions and aggregate metrics" building block.
-    Covers distributions, rankings, and many slice‑and‑dice questions.
+    Covers distributions, rankings, and many slice-and-dice questions.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -95,7 +95,7 @@ class SimpleGroupbyPlan(BaseModel):
 
 class PivotPlan(BaseModel):
     """
-    2D cross‑tabulation for questions like "distribution across X and Y".
+    2D cross-tabulation for questions like "distribution across X and Y".
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -111,7 +111,7 @@ class PivotPlan(BaseModel):
 
 class TrendPlan(BaseModel):
     """
-    Time‑bucketed series over `DemandDate` or `BuildDate`, optionally split
+    Time-bucketed series over `DemandDate` or `BuildDate`, optionally split
     into multiple series by a dimension such as `VehicleModel`.
     """
 
@@ -143,7 +143,7 @@ class FirstRepairDelayPlan(BaseModel):
 
 class TopNSharePlan(BaseModel):
     """
-    Top‑N breakdown plus share of total, for "what are the leading groups?"
+    Top-N breakdown plus share of total, for "what are the leading groups?"
     type questions.
     """
 
@@ -160,7 +160,7 @@ class TopNSharePlan(BaseModel):
 
 class DrilldownPlan(BaseModel):
     """
-    Two‑stage plan: first identify the top group by `top_dim`, then compute a
+    Two-stage plan: first identify the top group by `top_dim`, then compute a
     breakdown within that winning group along `breakdown_dim`.
     """
 
@@ -205,7 +205,7 @@ AnalysisPlan = Union[
 
 class AssistantPlan(BaseModel):
     """
-    One executable step in the multi‑step plan the LLM returns.
+    One executable step in the multi-step plan the LLM returns.
 
     It ties together:
     - the core analysis description,
@@ -246,6 +246,14 @@ class ResultItem(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+
+    # `ok`      : the step executed normally.
+    # `preview` : the backend applied a system-level truncation and is returning
+    #             a limited preview instead of the full output.
+    # `error`   : the step could not be executed as requested.
+    status: Literal["ok", "preview", "error"] = "ok"
+    notices: List[str] = Field(default_factory=list)
+
     answer_format: AnswerFormat
     narrative: str
     explanation: str
@@ -254,11 +262,10 @@ class ResultItem(BaseModel):
     chart: Optional[dict] = None
     plan: dict
 
-
 class QueryResponse(BaseModel):
     """
-    Full response contract used by the frontend, including per‑step details,
-    a final narrative, and optional follow‑up question suggestions.
+    Full response contract used by the frontend, including per-step details,
+    a final narrative, and optional follow-up question suggestions.
     """
 
     model_config = ConfigDict(extra="forbid")

@@ -8,7 +8,7 @@ from typing import Any, Optional, Dict, Tuple
 
 class TTLCache:
     """
-    Minimal in‑memory cache with time‑to‑live semantics.
+    Minimal in-memory cache with time-to-live semantics.
 
     The backend uses this both for:
     - LLM planning responses keyed by question text, and
@@ -41,7 +41,7 @@ class TTLCache:
 
 def stable_hash(obj: Any) -> str:
     """
-    Produce a deterministic hash for an arbitrary JSON‑serialisable object.
+    Produce a deterministic hash for an arbitrary JSON-serialisable object.
 
     This is used to key both plans and results so that semantically identical
     questions can reuse work across requests.
