@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="LLM Data Analyst Agent", layout="wide")
-st.title("⭐ LLM Data Analyst Agent")
+st.title("LLM Data Analyst Agent")
 st.caption("User Question → LLM Planner → Safe Pandas Execution → Text / Table / Chart")
 
 with st.sidebar:
@@ -28,17 +28,30 @@ EXAMPLES = [
     "Make a heatmap of DemandType by VehicleModel using row counts."
 ]
 
-q = st.text_area("Ask a question", value=EXAMPLES[0], height=90)
+if "q" not in st.session_state:
+    st.session_state["q"] = EXAMPLES[0]
+
+q = st.text_area("Ask a question", key="q", height=90)
+
+def set_example(text: str):
+    st.session_state["q"] = text
 
 cols = st.columns(len(EXAMPLES))
 for i, ex in enumerate(EXAMPLES):
-    if cols[i].button(f"Example {i+1}"):
-        st.session_state["q"] = ex
-        q = ex
+    cols[i].button(
+        f"Example {i+1}",
+        on_click=set_example,
+        args=(ex,),
+        key=f"ex_btn_{i}",
+    )
 
 if st.button("Ask"):
     with st.spinner("Planning and executing..."):
-        resp = requests.post(f"{API_BASE}/query", json={"question": q}, timeout=120)
+        resp = requests.post(
+            f"{API_BASE}/query",
+            json={"question": st.session_state["q"]},
+            timeout=120
+        )
         resp.raise_for_status()
         data = resp.json()
 

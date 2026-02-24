@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import pandas as pd
 import plotly.express as px
 from typing import Optional, Dict, Any
@@ -41,4 +42,4 @@ def make_chart(df: pd.DataFrame, chart: ChartSpec) -> Optional[Dict[str, Any]]:
     else:
         return None
 
-    return fig.to_dict()
+    return json.loads(fig.to_json())
