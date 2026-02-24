@@ -5,9 +5,9 @@ import pandas as pd
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
-st.set_page_config(page_title="LLM Data Analyst Agent", layout="wide")
-st.title("⭐ LLM Data Analyst Agent (v2)")
-st.caption("Multi-step planning + safe execution + tables/charts")
+st.set_page_config(page_title="Data Analyst Agent", layout="wide")
+st.title("Data Analyst Agent")
+st.caption("LLM multi-step planning → safe execution → text/tables/charts output")
 
 with st.sidebar:
     st.subheader("Backend")

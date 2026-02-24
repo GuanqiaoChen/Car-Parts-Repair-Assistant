@@ -10,6 +10,7 @@ from .schema import (
     TopNSharePlan, DrilldownPlan, CorrelationPlan
 )
 
+
 def _apply_filters(df: pd.DataFrame, filters) -> pd.DataFrame:
     out = df
     for f in filters:
@@ -36,21 +37,40 @@ def _apply_filters(df: pd.DataFrame, filters) -> pd.DataFrame:
                 out = out[(out[col] >= lo) & (out[col] <= hi)]
     return out
 
-def _cap_df(df: pd.DataFrame, max_rows: int) -> pd.DataFrame:
-    return df.head(max_rows) if max_rows and max_rows > 0 else df
+
+def _cap_df(df: pd.DataFrame, max_rows: int, meta: Dict[str, Any], reason: str) -> pd.DataFrame:
+    if not max_rows or max_rows <= 0:
+        return df
+    if len(df) > max_rows:
+        meta["truncated"] = True
+        # don't overwrite a more specific note if already present
+        meta["truncate_note"] = meta.get("truncate_note") or f"{reason} (showing first {max_rows} rows)."
+        return df.head(max_rows)
+    return df
+
 
 def _maybe_row_count(df: pd.DataFrame) -> pd.Series:
     return pd.Series(np.ones(len(df), dtype=int), index=df.index)
 
-def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: int, max_series: int) -> Tuple[pd.DataFrame, Optional[str], Dict[str, Any]]:
+
+def run_single_plan(
+    df: pd.DataFrame,
+    plan: AssistantPlan,
+    max_rows_returned: int,
+    max_series: int
+) -> Tuple[pd.DataFrame, Optional[str], Dict[str, Any]]:
     a = plan.analysis
     meta: Dict[str, Any] = {}
 
+    # ---------------------------
+    # SimpleGroupbyPlan
+    # ---------------------------
     if isinstance(a, SimpleGroupbyPlan):
         dff = _apply_filters(df, a.filters)
 
+        # No groupby: global aggregation
         if not a.groupby:
-            out = {}
+            out: Dict[str, Any] = {}
             if not a.metrics:
                 out["row_count"] = int(len(dff))
                 return pd.DataFrame([out]), None, meta
@@ -91,16 +111,29 @@ def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: in
         if a.sort is not None and a.sort.by in res.columns:
             res = res.sort_values(by=a.sort.by, ascending=a.sort.ascending)
 
-        res = res.head(max(1, int(a.limit)))
-        return _cap_df(res, max_rows_returned), None, meta
+        # Apply plan-level limit (top N)
+        orig_len = len(res)
+        res2 = res.head(max(1, int(a.limit)))
+        if len(res2) != orig_len:
+            meta["truncated"] = True
+            meta["truncate_note"] = (
+                meta.get("truncate_note")
+                or f"Full result has {orig_len} groups; showing top {len(res2)} (limit={a.limit})."
+            )
 
+        res2 = _cap_df(res2, max_rows_returned, meta, "Grouped result truncated for readability/performance")
+        return res2, None, meta
+
+    # ---------------------------
+    # PivotPlan
+    # ---------------------------
     if isinstance(a, PivotPlan):
         dff = _apply_filters(df, a.filters).copy()
 
         if a.value == "row_count":
             dff["_row_count"] = 1
             value_col = "_row_count"
-            aggfunc = "sum"
+            aggfunc = "sum"  # sum of 1s
         else:
             value_col = "Quantity"
             aggfunc = "sum" if a.agg == "sum" else "count"
@@ -114,9 +147,22 @@ def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: in
             fill_value=0,
         )
 
-        piv = piv.iloc[: a.limit_rows, : a.limit_cols]
-        return _cap_df(piv.reset_index(), max_rows_returned), None, meta
+        orig_shape = piv.shape
+        piv2 = piv.iloc[: a.limit_rows, : a.limit_cols]
+        if piv2.shape != orig_shape:
+            meta["truncated"] = True
+            meta["truncate_note"] = (
+                meta.get("truncate_note")
+                or f"Full pivot is too large; limited to top {a.limit_rows} rows × {a.limit_cols} cols for readability."
+            )
 
+        piv_reset = piv2.reset_index()
+        piv_reset = _cap_df(piv_reset, max_rows_returned, meta, "Pivot result truncated for readability/performance")
+        return piv_reset, None, meta
+
+    # ---------------------------
+    # TrendPlan
+    # ---------------------------
     if isinstance(a, TrendPlan):
         dff = _apply_filters(df, a.filters).copy()
 
@@ -140,13 +186,44 @@ def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: in
         if a.groupby is None:
             res = dff.groupby("_bucket", dropna=False)[val_col].agg(agg).reset_index(name="value")
         else:
-            totals = dff.groupby(a.groupby)[val_col].agg(agg).sort_values(ascending=False).head(min(max_series, a.limit_series)).index
+            # keep top series only
+            totals = (
+                dff.groupby(a.groupby)[val_col]
+                .agg(agg)
+                .sort_values(ascending=False)
+                .head(min(max_series, a.limit_series))
+                .index
+            )
+            # detect truncation in series count
+            unique_series = dff[a.groupby].nunique(dropna=False)
+            if unique_series > len(totals):
+                meta["truncated"] = True
+                meta["truncate_note"] = (
+                    meta.get("truncate_note")
+                    or f"Too many series for '{a.groupby}'; showing top {len(totals)} series for readability."
+                )
+
             dff = dff[dff[a.groupby].isin(totals)]
             res = dff.groupby(["_bucket", a.groupby], dropna=False)[val_col].agg(agg).reset_index(name="value")
 
-        res = res.sort_values("_bucket").head(min(max_rows_returned, a.limit_points))
-        return _cap_df(res, max_rows_returned), None, meta
+        res = res.sort_values("_bucket")
 
+        # limit_points
+        orig_len = len(res)
+        res2 = res.head(min(max_rows_returned, a.limit_points))
+        if len(res2) != orig_len:
+            meta["truncated"] = True
+            meta["truncate_note"] = (
+                meta.get("truncate_note")
+                or f"Trend has {orig_len} points; showing first {len(res2)} (limit_points={a.limit_points})."
+            )
+
+        res2 = _cap_df(res2, max_rows_returned, meta, "Trend result truncated for readability/performance")
+        return res2, None, meta
+
+    # ---------------------------
+    # FirstRepairDelayPlan
+    # ---------------------------
     if isinstance(a, FirstRepairDelayPlan):
         dff = _apply_filters(df, a.filters).dropna(subset=["VIN", "DemandDate", "BuildDate"]).copy()
         if dff.empty:
@@ -154,8 +231,8 @@ def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: in
 
         first = (
             dff.sort_values("DemandDate")
-              .groupby("VIN", as_index=False)
-              .first()[["VIN", "DemandDate", "BuildDate", a.by]]
+            .groupby("VIN", as_index=False)
+            .first()[["VIN", "DemandDate", "BuildDate", a.by]]
         )
         first["delay_days"] = (first["DemandDate"] - first["BuildDate"]).dt.days
 
@@ -173,9 +250,23 @@ def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: in
             res = gb.max().reset_index(name="max_delay_days")
             sort_col = "max_delay_days"
 
-        res = res.sort_values(sort_col, ascending=not a.sort_desc).head(a.limit)
-        return _cap_df(res, max_rows_returned), None, meta
+        res = res.sort_values(sort_col, ascending=not a.sort_desc)
 
+        orig_len = len(res)
+        res2 = res.head(a.limit)
+        if len(res2) != orig_len:
+            meta["truncated"] = True
+            meta["truncate_note"] = (
+                meta.get("truncate_note")
+                or f"Full result has {orig_len} groups; showing top {len(res2)} (limit={a.limit})."
+            )
+
+        res2 = _cap_df(res2, max_rows_returned, meta, "Delay result truncated for readability/performance")
+        return res2, None, meta
+
+    # ---------------------------
+    # TopNSharePlan
+    # ---------------------------
     if isinstance(a, TopNSharePlan):
         dff = _apply_filters(df, a.filters).copy()
         if a.metric == "row_count":
@@ -190,17 +281,31 @@ def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: in
         total = float(grouped["value"].sum()) if len(grouped) else 0.0
 
         grouped = grouped.sort_values("value", ascending=not a.sort_desc)
+        orig_len = len(grouped)
+
         top = grouped.head(a.top_n).copy()
+        if len(top) != orig_len:
+            meta["truncated"] = True
+            meta["truncate_note"] = (
+                meta.get("truncate_note")
+                or f"Full result has {orig_len} groups; showing top {len(top)} (top_n={a.top_n})."
+            )
+
         if a.include_other and len(grouped) > a.top_n:
             other_val = float(grouped.iloc[a.top_n:]["value"].sum())
             top = pd.concat([top, pd.DataFrame([{a.dim: "Other", "value": other_val}])], ignore_index=True)
 
         top["share"] = top["value"] / total if total > 0 else 0.0
-        return _cap_df(top, max_rows_returned), None, meta
+        top = _cap_df(top, max_rows_returned, meta, "TopN+share result truncated for readability/performance")
+        return top, None, meta
 
+    # ---------------------------
+    # DrilldownPlan
+    # ---------------------------
     if isinstance(a, DrilldownPlan):
         dff = _apply_filters(df, a.filters).copy()
 
+        # top stage
         if a.top_metric == "row_count":
             dff["_row_count"] = 1
             val_col = "_row_count"
@@ -210,15 +315,25 @@ def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: in
             top_agg = "sum" if a.top_agg == "sum" else "count"
 
         top_df = dff.groupby(a.top_dim, dropna=False)[val_col].agg(top_agg).reset_index(name="value")
-        top_df = top_df.sort_values("value", ascending=False).head(a.top_n)
+        top_df = top_df.sort_values("value", ascending=False)
 
-        if top_df.empty:
+        orig_top = len(top_df)
+        top_df2 = top_df.head(a.top_n)
+        if len(top_df2) != orig_top:
+            meta["truncated"] = True
+            meta["truncate_note"] = (
+                meta.get("truncate_note")
+                or f"Found {orig_top} groups for {a.top_dim}; using top {len(top_df2)} (top_n={a.top_n})."
+            )
+
+        if top_df2.empty:
             return pd.DataFrame([]), "No rows to compute drilldown after filtering.", meta
 
-        top_value = top_df.iloc[0][a.top_dim]
+        top_value = top_df2.iloc[0][a.top_dim]
         meta["top_dim"] = a.top_dim
         meta["top_value"] = top_value
 
+        # breakdown stage within the top value
         dff2 = dff[dff[a.top_dim] == top_value].copy()
 
         if a.breakdown_metric == "row_count":
@@ -230,14 +345,34 @@ def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: in
             b_agg = "sum" if a.breakdown_agg == "sum" else "count"
 
         br = dff2.groupby(a.breakdown_dim, dropna=False)[b_val].agg(b_agg).reset_index(name="value")
-        br = br.sort_values("value", ascending=False).head(a.breakdown_limit)
+        br = br.sort_values("value", ascending=False)
 
-        br.insert(0, f"selected_{a.top_dim}", str(top_value))
-        return _cap_df(br, max_rows_returned), None, meta
+        orig_len = len(br)
+        br2 = br.head(a.breakdown_limit)
+        if len(br2) != orig_len:
+            meta["truncated"] = True
+            meta["truncate_note"] = (
+                meta.get("truncate_note")
+                or f"Breakdown has {orig_len} groups; showing top {len(br2)} (breakdown_limit={a.breakdown_limit})."
+            )
 
+        br2.insert(0, f"selected_{a.top_dim}", str(top_value))
+        br2 = _cap_df(br2, max_rows_returned, meta, "Drilldown result truncated for readability/performance")
+        return br2, None, meta
+
+    # ---------------------------
+    # CorrelationPlan
+    # ---------------------------
     if isinstance(a, CorrelationPlan):
         dff = _apply_filters(df, a.filters).copy()
+
+        # sample for performance
         if len(dff) > a.sample:
+            meta["truncated"] = True
+            meta["truncate_note"] = (
+                meta.get("truncate_note")
+                or f"Correlation computed on a random sample of {a.sample} rows for performance."
+            )
             dff = dff.sample(n=a.sample, random_state=42)
 
         cols = [a.x, a.y]
@@ -253,7 +388,14 @@ def run_single_plan(df: pd.DataFrame, plan: AssistantPlan, max_rows_returned: in
         meta["corr"] = corr
         meta["scatter_points"] = tmp.reset_index(drop=True).to_dict(orient="list")
 
-        summary = pd.DataFrame([{"method": a.method, "x": a.x, "y": a.y, "correlation": corr, "n": int(len(tmp))}])
-        return _cap_df(summary, max_rows_returned), None, meta
+        summary = pd.DataFrame([{
+            "method": a.method,
+            "x": a.x,
+            "y": a.y,
+            "correlation": corr,
+            "n": int(len(tmp)),
+        }])
+        summary = _cap_df(summary, max_rows_returned, meta, "Correlation summary truncated for readability/performance")
+        return summary, None, meta
 
     return pd.DataFrame([]), "Unsupported analysis plan kind.", meta
