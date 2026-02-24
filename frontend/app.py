@@ -3,8 +3,10 @@ import requests
 import streamlit as st
 import pandas as pd
 
+# Base URL for the FastAPI backend that owns planning and execution.
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
+# Basic page chrome that advertises the NL → LLM → Pandas → UI pipeline.
 st.set_page_config(page_title="Data Analyst Agent", layout="wide")
 st.title("Data Analyst Agent")
 st.caption("LLM multi-step planning → safe execution → text/tables/charts output")
@@ -12,6 +14,7 @@ st.caption("LLM multi-step planning → safe execution → text/tables/charts ou
 with st.sidebar:
     st.subheader("Backend")
     st.write(API_BASE)
+    # Small health probe so users can debug connectivity without leaving the UI.
     if st.button("Health check"):
         try:
             r = requests.get(f"{API_BASE}/health", timeout=10)
@@ -19,6 +22,8 @@ with st.sidebar:
         except Exception as e:
             st.error(str(e))
 
+# Example prompts that reflect the kinds of questions the backend is optimised
+# for; these double as documentation for non-technical users.
 EXAMPLES = [
     "What is the distribution of repair demand types across different vehicle models and countries?",
     "Which province has the most repair requests, and which pay type is most common there?",
@@ -32,10 +37,15 @@ EXAMPLES = [
 if "q" not in st.session_state:
     st.session_state["q"] = EXAMPLES[0]
 
+# This is the only place where a free‑form natural language query is collected;
+# everything downstream treats it as data and sends it to the backend as JSON.
 q = st.text_area("Ask a question", key="q", height=90)
 
+
 def set_example(text: str):
+    """Helper used by example buttons to populate the query text area."""
     st.session_state["q"] = text
+
 
 btn_cols = st.columns(4)
 for i in range(min(4, len(EXAMPLES))):
@@ -58,6 +68,8 @@ for j in range(3):
         )
 
 if st.button("Ask"):
+    # The Streamlit layer is intentionally thin: it serialises the question into
+    # the `QueryRequest` contract and lets the backend decide how to answer it.
     with st.spinner("Planning and executing..."):
         resp = requests.post(f"{API_BASE}/query", json={"question": q}, timeout=180)
         resp.raise_for_status()
@@ -68,6 +80,8 @@ if st.button("Ask"):
 
     suggestions = data.get("suggestions", [])
     if suggestions:
+        # Suggestions come straight from the backend and are rendered as a
+        # small block of guidance on how to refine or extend the question.
         st.info("Suggestions:\n- " + "\n- ".join(suggestions))
 
     items = data.get("items", [])
@@ -76,6 +90,8 @@ if st.button("Ask"):
         st.write(item.get("narrative", ""))
         st.caption(item.get("explanation", ""))
 
+        # The output type is chosen server‑side; the frontend simply inspects
+        # which fields are present and renders them in a natural order.
         if item.get("text"):
             st.write(item["text"])
 

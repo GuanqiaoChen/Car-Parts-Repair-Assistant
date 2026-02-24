@@ -8,10 +8,23 @@ from openai import OpenAI
 from .schema import MultiAssistantPlan, DATA_COLUMNS
 
 def _load_synonyms() -> dict:
+    """
+    Load the hand‑curated mapping between user‑facing phrases and strict
+    dataset column names. This is the main bridge between natural language
+    questions and the schema the executor is allowed to touch.
+    """
     p = Path(__file__).parent / "resources" / "synonyms.json"
     return json.loads(p.read_text(encoding="utf-8"))
 
 def system_prompt() -> str:
+    """
+    Build the single source of truth for how we talk to the LLM planner.
+
+    The prompt carefully describes:
+    - which columns exist and how they can be referenced,
+    - how to decompose a free‑form question into a `MultiAssistantPlan`, and
+    - which analysis types and output formats are preferred.
+    """
     synonyms = _load_synonyms()
     cols = ", ".join(DATA_COLUMNS + ["VehicleAgeDays"])
     return f"""You are a data analyst planner.
@@ -82,11 +95,26 @@ Return JSON only.
 
 
 class LLMPlanner:
+    """
+    Thin wrapper around the OpenAI client.
+
+    This class is intentionally small: it knows how to:
+    - feed the system prompt and raw question into the model, and
+    - ask the SDK to parse the response directly into a `MultiAssistantPlan`.
+
+    All policy and safety constraints live in `system_prompt` and in downstream
+    validators so that changing models does not require touching call sites.
+    """
+
     def __init__(self) -> None:
         self.client = OpenAI()
         self.model = os.getenv("OPENAI_MODEL", "gpt-5.2")
 
     def plan_multi(self, question: str) -> MultiAssistantPlan:
+        """
+        Turn a single natural‑language question into one or more structured
+        analysis plans that the executor can run without further LLM calls.
+        """
         resp = self.client.responses.parse(
             model=self.model,
             input=[

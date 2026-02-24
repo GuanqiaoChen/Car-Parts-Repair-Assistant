@@ -7,6 +7,7 @@ from .schema import (
     TopNSharePlan, DrilldownPlan, CorrelationPlan
 )
 
+
 def validate_assistant_plan(plan: AssistantPlan, max_rows_returned: int, max_series: int) -> List[str]:
     errs: List[str] = []
     a = plan.analysis
@@ -49,8 +50,11 @@ def validate_assistant_plan(plan: AssistantPlan, max_rows_returned: int, max_ser
 
     return errs
 
+
 def validate_multi(plan: MultiAssistantPlan, max_rows_returned: int, max_series: int) -> List[str]:
     errs: List[str] = []
+    # Guardrail against pathological or hallucinated plans: cap the number of
+    # independent steps we are willing to execute for a single question.
     if len(plan.plans) > 5:
         errs.append("Too many sub-plans (max 5).")
     for i, p in enumerate(plan.plans):

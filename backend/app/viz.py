@@ -7,13 +7,28 @@ from typing import Optional, Dict, Any
 
 from .schema import ChartSpec
 
+
 def choose_default_chart(df: pd.DataFrame) -> ChartSpec:
+    """
+    Fallback when the planner does not propose a specific visual.
+
+    The heuristic is intentionally simple: treat the first column as a category
+    and the second as a value, and render a bar chart if both exist.
+    """
     cols = list(df.columns)
     if len(cols) >= 2:
         return ChartSpec(type="bar", x=cols[0], y=cols[1])
     return ChartSpec(type="none")
 
+
 def make_chart(df: pd.DataFrame, chart: ChartSpec, meta: Optional[dict] = None) -> Optional[Dict[str, Any]]:
+    """
+    Render a Plotly chart for the given `ChartSpec`, returning a JSON payload
+    that the frontend can feed directly into `st.plotly_chart`.
+
+    Where possible, we reuse extra context from `meta` (for example sampled
+    scatter points for correlations) so the visual matches the numeric output.
+    """
     if df is None or df.empty:
         return None
 
@@ -61,4 +76,6 @@ def make_chart(df: pd.DataFrame, chart: ChartSpec, meta: Optional[dict] = None) 
             return None
         return json.loads(fig.to_json())
     except Exception:
+        # Chart rendering should never crash the agent; when Plotly fails we
+        # simply fall back to a table representation of the same data.
         return None

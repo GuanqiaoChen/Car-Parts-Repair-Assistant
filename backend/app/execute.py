@@ -43,13 +43,19 @@ def _cap_df(df: pd.DataFrame, max_rows: int, meta: Dict[str, Any], reason: str) 
         return df
     if len(df) > max_rows:
         meta["truncated"] = True
-        # don't overwrite a more specific note if already present
+        # Do not overwrite a more specific note if the caller already set one;
+        # the frontend later turns this into user‑visible truncation messaging.
         meta["truncate_note"] = meta.get("truncate_note") or f"{reason} (showing first {max_rows} rows)."
         return df.head(max_rows)
     return df
 
 
 def _maybe_row_count(df: pd.DataFrame) -> pd.Series:
+    """
+    Helper that materialises a synthetic `row_count` metric as a series of 1s.
+    This keeps the planning schema simple while letting the executor treat
+    counts like any other aggregation.
+    """
     return pd.Series(np.ones(len(df), dtype=int), index=df.index)
 
 
@@ -60,11 +66,14 @@ def run_single_plan(
     max_series: int
 ) -> Tuple[pd.DataFrame, Optional[str], Dict[str, Any]]:
     a = plan.analysis
+    # `meta` travels alongside the DataFrame and captures non‑tabular details
+    # (truncation, sampling choices, correlation coefficients, etc.) that are
+    # later folded into the user‑facing narrative.
     meta: Dict[str, Any] = {}
 
-    # ---------------------------
+    
     # SimpleGroupbyPlan
-    # ---------------------------
+    
     if isinstance(a, SimpleGroupbyPlan):
         dff = _apply_filters(df, a.filters)
 
@@ -124,9 +133,9 @@ def run_single_plan(
         res2 = _cap_df(res2, max_rows_returned, meta, "Grouped result truncated for readability/performance")
         return res2, None, meta
 
-    # ---------------------------
+    
     # PivotPlan
-    # ---------------------------
+    
     if isinstance(a, PivotPlan):
         dff = _apply_filters(df, a.filters).copy()
 
@@ -160,9 +169,9 @@ def run_single_plan(
         piv_reset = _cap_df(piv_reset, max_rows_returned, meta, "Pivot result truncated for readability/performance")
         return piv_reset, None, meta
 
-    # ---------------------------
+    
     # TrendPlan
-    # ---------------------------
+    
     if isinstance(a, TrendPlan):
         dff = _apply_filters(df, a.filters).copy()
 
@@ -221,9 +230,9 @@ def run_single_plan(
         res2 = _cap_df(res2, max_rows_returned, meta, "Trend result truncated for readability/performance")
         return res2, None, meta
 
-    # ---------------------------
+    
     # FirstRepairDelayPlan
-    # ---------------------------
+    
     if isinstance(a, FirstRepairDelayPlan):
         dff = _apply_filters(df, a.filters).dropna(subset=["VIN", "DemandDate", "BuildDate"]).copy()
         if dff.empty:
@@ -264,9 +273,9 @@ def run_single_plan(
         res2 = _cap_df(res2, max_rows_returned, meta, "Delay result truncated for readability/performance")
         return res2, None, meta
 
-    # ---------------------------
+    
     # TopNSharePlan
-    # ---------------------------
+    
     if isinstance(a, TopNSharePlan):
         dff = _apply_filters(df, a.filters).copy()
         if a.metric == "row_count":
@@ -299,9 +308,9 @@ def run_single_plan(
         top = _cap_df(top, max_rows_returned, meta, "TopN+share result truncated for readability/performance")
         return top, None, meta
 
-    # ---------------------------
+    
     # DrilldownPlan
-    # ---------------------------
+    
     if isinstance(a, DrilldownPlan):
         dff = _apply_filters(df, a.filters).copy()
 
@@ -360,9 +369,9 @@ def run_single_plan(
         br2 = _cap_df(br2, max_rows_returned, meta, "Drilldown result truncated for readability/performance")
         return br2, None, meta
 
-    # ---------------------------
+    
     # CorrelationPlan
-    # ---------------------------
+    
     if isinstance(a, CorrelationPlan):
         dff = _apply_filters(df, a.filters).copy()
 
