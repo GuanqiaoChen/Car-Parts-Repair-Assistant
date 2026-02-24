@@ -1,0 +1,71 @@
+{
+  "Province": [
+    "province",
+    "state",
+    "region"
+  ],
+  "CountryCode": [
+    "country",
+    "country code",
+    "nation"
+  ],
+  "VehicleModel": [
+    "vehicle model",
+    "model",
+    "car model"
+  ],
+  "DemandType": [
+    "demand type",
+    "demand category",
+    "demand"
+  ],
+  "RequestType": [
+    "request type",
+    "request",
+    "repair type"
+  ],
+  "PayType": [
+    "pay type",
+    "payment type",
+    "payment"
+  ],
+  "SSPart": [
+    "part",
+    "part id",
+    "part number",
+    "component"
+  ],
+  "VIN": [
+    "vin",
+    "vehicle id",
+    "vehicle identifier"
+  ],
+  "Quantity": [
+    "quantity",
+    "qty",
+    "units",
+    "count of parts"
+  ],
+  "DemandDate": [
+    "demand date",
+    "repair date",
+    "request date",
+    "date requested"
+  ],
+  "BuildDate": [
+    "build date",
+    "manufacture date",
+    "built date"
+  ],
+  "VehicleAgeDays": [
+    "vehicle age",
+    "age",
+    "age days",
+    "time since build"
+  ],
+  "delay_days": [
+    "first repair delay",
+    "time to first repair",
+    "first repair time"
+  ]
+}

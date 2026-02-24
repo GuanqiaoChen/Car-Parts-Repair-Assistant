@@ -2,13 +2,12 @@ import os
 import requests
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="LLM Data Analyst Agent", layout="wide")
-st.title("LLM Data Analyst Agent")
-st.caption("User Question → LLM Planner → Safe Pandas Execution → Text / Table / Chart")
+st.title("⭐ LLM Data Analyst Agent (v2)")
+st.caption("Multi-step planning + safe execution + tables/charts")
 
 with st.sidebar:
     st.subheader("Backend")
@@ -25,7 +24,9 @@ EXAMPLES = [
     "Which province has the most repair requests, and which pay type is most common there?",
     "How does the average time between a vehicle's build date and its first repair demand vary by vehicle model?",
     "Show the monthly trend of total Quantity requested.",
-    "Make a heatmap of DemandType by VehicleModel using row counts."
+    "Make a heatmap of DemandType by VehicleModel using row counts.",
+    "Is vehicle age correlated with Quantity?",
+    "Top 10 parts by Quantity and their share of total."
 ]
 
 if "q" not in st.session_state:
@@ -36,41 +37,55 @@ q = st.text_area("Ask a question", key="q", height=90)
 def set_example(text: str):
     st.session_state["q"] = text
 
-cols = st.columns(len(EXAMPLES))
-for i, ex in enumerate(EXAMPLES):
-    cols[i].button(
+btn_cols = st.columns(4)
+for i in range(min(4, len(EXAMPLES))):
+    btn_cols[i].button(
         f"Example {i+1}",
         on_click=set_example,
-        args=(ex,),
+        args=(EXAMPLES[i],),
         key=f"ex_btn_{i}",
     )
 
+more_cols = st.columns(3)
+for j in range(3):
+    idx = 4 + j
+    if idx < len(EXAMPLES):
+        more_cols[j].button(
+            f"Example {idx+1}",
+            on_click=set_example,
+            args=(EXAMPLES[idx],),
+            key=f"ex_btn_{idx}",
+        )
+
 if st.button("Ask"):
     with st.spinner("Planning and executing..."):
-        resp = requests.post(
-            f"{API_BASE}/query",
-            json={"question": st.session_state["q"]},
-            timeout=120
-        )
+        resp = requests.post(f"{API_BASE}/query", json={"question": q}, timeout=180)
         resp.raise_for_status()
         data = resp.json()
 
-    st.subheader("Narrative")
-    st.write(data.get("narrative", ""))
+    st.subheader("Final narrative")
+    st.write(data.get("final_narrative", ""))
 
-    if data.get("text"):
-        st.subheader("Text")
-        st.write(data["text"])
+    suggestions = data.get("suggestions", [])
+    if suggestions:
+        st.info("Suggestions:\n- " + "\n- ".join(suggestions))
 
-    if data.get("table"):
-        st.subheader("Table")
-        t = data["table"]
-        df = pd.DataFrame(t["rows"], columns=t["columns"])
-        st.dataframe(df, use_container_width=True)
+    items = data.get("items", [])
+    for idx, item in enumerate(items, start=1):
+        st.markdown(f"## Step {idx}")
+        st.write(item.get("narrative", ""))
+        st.caption(item.get("explanation", ""))
 
-    if data.get("chart"):
-        st.subheader("Chart")
-        st.plotly_chart(data["chart"], use_container_width=True)
+        if item.get("text"):
+            st.write(item["text"])
 
-    with st.expander("Show generated plan (debug)"):
-        st.json(data.get("plan", {}))
+        if item.get("table"):
+            t = item["table"]
+            df = pd.DataFrame(t["rows"], columns=t["columns"])
+            st.dataframe(df, use_container_width=True)
+
+        if item.get("chart"):
+            st.plotly_chart(item["chart"], use_container_width=True)
+
+        with st.expander("Show generated plan (debug)"):
+            st.json(item.get("plan", {}))

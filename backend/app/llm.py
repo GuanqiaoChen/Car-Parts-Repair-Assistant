@@ -1,51 +1,98 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 import os
 from openai import OpenAI
-from .schema import AssistantPlan, DATA_COLUMNS
+
+from .schema import MultiAssistantPlan, DATA_COLUMNS
+
+def _load_synonyms() -> dict:
+    p = Path(__file__).parent / "resources" / "synonyms.json"
+    return json.loads(p.read_text(encoding="utf-8"))
 
 def system_prompt() -> str:
+    synonyms = _load_synonyms()
     cols = ", ".join(DATA_COLUMNS + ["VehicleAgeDays"])
     return f"""You are a data analyst planner.
 
 You will receive a natural-language question about a CSV dataset with these columns:
 {cols}
 
-Your task: produce a valid JSON object matching the AssistantPlan schema.
-Rules:
+Synonyms mapping (user terms → column):
+{json.dumps(synonyms, ensure_ascii=False)}
+
+Your task: produce a valid JSON object matching the MultiAssistantPlan schema.
+The output must be executable by a safe Pandas engine. Return JSON only.
+
+Core principles
+- The user may ask multiple sub-questions. You must (1) decompose the request into sub-questions and (2) detect dependencies between them.
+- IMPORTANT: MultiAssistantPlan.plans are executed independently (no variable passing). Therefore:
+  - If a sub-question depends on the result of another sub-question, DO NOT split them into separate independent plans.
+  - Instead, use a single plan type that captures the dependency (prefer `drilldown`), or combine into one executable plan.
+
+Rules (safety and correctness)
 - Never invent columns outside the schema.
-- Do NOT write code. Only output a plan.
-- Prefer these analysis kinds:
-  - simple_groupby: distributions, rankings, counts, sums, averages
-  - pivot: 2D cross tab like "distribution across X and Y"
-  - trend: time series over DemandDate (or BuildDate if asked)
-  - first_repair_delay: time between BuildDate and FIRST DemandDate per VIN
+- Do NOT write code. Only output plan JSON.
+- Always use dataset columns exactly as listed (after applying synonyms mapping).
+- Keep results readable with reasonable limits (e.g., top 10; limit <= 50).
+
+Decomposition + dependency rules
+1) Decompose the user request into atomic sub-questions.
+2) Build an implicit dependency graph:
+   - A sub-question B depends on A if B uses phrases like:
+     "that province/model/country/part", "within the top", "in the most common", "for the best one", "for the one you found", etc.
+   - B also depends on A if B requires the identity of a top group/value computed in A.
+3) Planning strategy:
+   - If there are dependency edges, try to collapse each dependent chain into ONE plan:
+     - Use `drilldown` for patterns like: "find top X, then breakdown Y within that top X".
+     - Use `first_repair_delay` for "build date to first repair" requests (not as 2 steps).
+   - Only split into multiple plans when the sub-questions are independent (no dependency edges).
+
+Preferred analysis kinds
+- simple_groupby: distributions, rankings, counts, sums, averages
+- pivot: 2D cross tab like "distribution across X and Y" (often pair with chart.type=heatmap)
+- trend: time series over DemandDate (or BuildDate if asked) (often pair with chart.type=line)
+- first_repair_delay: time between BuildDate and FIRST DemandDate per VIN
+- topn_share: top N plus share of total
+- drilldown: "find top X, then breakdown within that top value" (for dependent questions)
+- correlation: relationship between numeric fields (Quantity vs VehicleAgeDays) (often chart.type=scatter)
+
+Heuristics
 - For "distribution": use row_count grouped by requested dimensions.
-- For "most common" / "top": sort descending and limit 10.
+- For "most common"/"top": sort descending and limit ~10 (or user-specified top N).
 - Choose answer_format:
-  - chart for distributions/comparisons/trends
+  - chart for rankings / distributions / comparisons / trends
   - table for detailed breakdown
   - text only for short summaries
 - chart.type suggestions:
   - bar for rankings
   - line for trend
   - heatmap for pivot
+  - pie only for small-category share breakdowns
+  - scatter for correlation
+
+Output requirements
+- Return JSON only, matching MultiAssistantPlan exactly.
+- If the user asks for multiple independent outputs, return multiple plans.
+- If dependency exists and cannot be expressed safely with available plan kinds, prefer a single simpler plan that still answers the most central question, and set final_narrative to explain the limitation briefly.
+
 Return JSON only.
 """.strip()
+
 
 class LLMPlanner:
     def __init__(self) -> None:
         self.client = OpenAI()
         self.model = os.getenv("OPENAI_MODEL", "gpt-5.2")
 
-    def plan(self, question: str) -> AssistantPlan:
-        # Structured Outputs parsing into a Pydantic model
+    def plan_multi(self, question: str) -> MultiAssistantPlan:
         resp = self.client.responses.parse(
             model=self.model,
             input=[
                 {"role": "system", "content": system_prompt()},
                 {"role": "user", "content": question},
             ],
-            text_format=AssistantPlan,
+            text_format=MultiAssistantPlan,
         )
         return resp.output_parsed
