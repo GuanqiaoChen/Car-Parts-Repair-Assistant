@@ -45,7 +45,7 @@ The frontend renders preview as warnings and error as errors.
 
 ## Project Structure
 
-```text
+'''text
 .
 ├─ backend/
 │  ├─ app/
@@ -69,7 +69,7 @@ The frontend renders preview as warnings and error as errors.
 ├─ data/                  # Put CSV/Data files here (not committed)
 ├─ docker-compose.yml
 └─ README.md
-```
+'''
 
 ## Prerequisites
 
