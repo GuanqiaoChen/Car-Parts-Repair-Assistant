@@ -104,7 +104,7 @@ Open:
 - Health check: http://localhost:8000/health
 
 
-## Setup (Local Without Docker)
+## Setup (Local)
 
 Backend:
 - cd backend
