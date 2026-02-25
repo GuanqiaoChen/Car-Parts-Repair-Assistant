@@ -45,7 +45,7 @@ The frontend renders preview as warnings and error as errors.
 
 ## Project Structure
 
-'''
+```text
 .
 ├─ backend/
 │  ├─ app/
@@ -69,7 +69,7 @@ The frontend renders preview as warnings and error as errors.
 ├─ data/                  # Put CSV/Data files here (not committed)
 ├─ docker-compose.yml
 └─ README.md
-'''
+```
 
 ## Prerequisites
 
@@ -78,7 +78,7 @@ The frontend renders preview as warnings and error as errors.
 - An OpenAI API key
 
 
-## Setup (Docker Recommended)
+## Setup (Docker)
 
 1) Place dataset
 Put the data file in:
@@ -106,27 +106,27 @@ Open:
 
 ## Setup (Local Without Docker)
 
-Backend
-cd backend
-python -m venv .venv
-(activate venv)
-pip install -r requirements.txt
+Backend:
+- cd backend
+- python -m venv .venv
+- (activate venv)
+- pip install -r requirements.txt
 
-cp .env.example .env
-(edit .env, including OPENAI_API_KEY and DATA_PATH)
+- cp .env.example .env
+- (edit .env, including OPENAI_API_KEY and DATA_PATH)
 
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+- uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-Frontend
-cd frontend
-python -m venv .venv
-(activate venv)
-pip install -r requirements.txt
+Frontend:
+- cd frontend
+- python -m venv .venv
+- (activate venv)
+- pip install -r requirements.txt
 
-cp .env.example .env
-(edit .env: API_BASE_URL=http://localhost:8000)
+- cp .env.example .env
+- (edit .env: API_BASE_URL=http://localhost:8000)
 
-streamlit run app.py
+- streamlit run app.py
 
 
 ## How to Use
