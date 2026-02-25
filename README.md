@@ -45,6 +45,7 @@ The frontend renders preview as warnings and error as errors.
 
 ## Project Structure
 
+'''
 .
 ├─ backend/
 │  ├─ app/
@@ -68,7 +69,7 @@ The frontend renders preview as warnings and error as errors.
 ├─ data/                  # Put CSV/Data files here (not committed)
 ├─ docker-compose.yml
 └─ README.md
-
+'''
 
 ## Prerequisites
 
@@ -108,22 +109,22 @@ Open:
 Backend
 cd backend
 python -m venv .venv
-# activate venv
+(activate venv)
 pip install -r requirements.txt
 
 cp .env.example .env
-# edit .env (OPENAI_API_KEY, DATA_PATH)
+(edit .env, including OPENAI_API_KEY and DATA_PATH)
 
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 Frontend
 cd frontend
 python -m venv .venv
-# activate venv
+(activate venv)
 pip install -r requirements.txt
 
 cp .env.example .env
-# edit .env: API_BASE_URL=http://localhost:8000
+(edit .env: API_BASE_URL=http://localhost:8000)
 
 streamlit run app.py
 
