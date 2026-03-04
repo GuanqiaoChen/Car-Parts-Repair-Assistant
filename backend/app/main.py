@@ -186,6 +186,14 @@ def query(req: QueryRequest):
     if errs:
         msg = "Plan validation failed:\n- " + "\n- ".join(errs)
         return _friendly_fail(question, msg, plan_kind="validation_error")
+    
+    final_hint = (multi.final_narrative or "").lower()
+    if "not interpretable" in final_hint or "restate" in final_hint or "not a clear question" in final_hint or "unclear" in final_hint or "rephrase" in final_hint:
+        return _friendly_fail(
+            question,
+            multi.final_narrative or "The request is not interpretable as a dataset question. Please restate your question.",
+            plan_kind="needs_clarification",
+        )
 
     items: list[ResultItem] = []
     dyn_suggestions: list[str] = []

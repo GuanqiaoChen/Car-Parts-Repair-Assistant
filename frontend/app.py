@@ -31,7 +31,7 @@ EXAMPLES = [
     "Show the monthly trend of total Quantity requested.",
     "Make a heatmap of DemandType by VehicleModel using row counts.",
     "Heatmap of VIN by SSPart using row counts.",
-    "Show distribution by DealerName."
+    "Compute correlation between Quantity and VehicleAgeDays for CountryCode == ZZZ.",
 ]
 
 if "q" not in st.session_state:
